@@ -1,7 +1,7 @@
 const { createServer } = require("http");
 const { stat, createReadStream } = require("fs");
 const { promisify } = require("util");
-const filename = "./audio-files/audio_1.m4a";
+const filename = "./audio-files/audio_1.m4a"; // any audio/video file mp4 format
 const audioInfo = promisify(stat);
 
 createServer(async (req, res) => {
@@ -10,7 +10,9 @@ createServer(async (req, res) => {
 
   //handle the range
   const range = req.headers.range;
-  // console.log("range: ", range);    // = range:  bytes=0-1
+  // console.log("range: ", range);
+  // = range:  bytes=0-1 ;
+  // required by Safary/etc ;
   if (range) {
     let [start, end] = range.replace(/bytes=/, "").split("-");
     start = parseInt(start, 10);
@@ -31,6 +33,4 @@ createServer(async (req, res) => {
     });
     createReadStream(filename).pipe(res);
   }
-
-  console.log("range: ", range);
 }).listen(5050, () => console.log("server is running on server 5050...."));
