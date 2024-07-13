@@ -1,36 +1,57 @@
-const { createServer } = require("http");
-const { stat, createReadStream } = require("fs");
-const { promisify } = require("util");
-const filename = "./audio-files/audio_1.m4a"; // any audio/video file mp4 format
-const audioInfo = promisify(stat);
+const express = require("express");
+const app = express();
+const fs = require("fs");
+const audioDetailsData = require("./data");
 
-createServer(async (req, res) => {
-  //hadle the file size
-  const { size } = await audioInfo(filename);
+const port = 3000;
 
-  //handle the range
-  const range = req.headers.range;
-  // console.log("range: ", range);
-  // = range:  bytes=0-1 ;
-  // required by Safary/etc ;
-  if (range) {
-    let [start, end] = range.replace(/bytes=/, "").split("-");
-    start = parseInt(start, 10);
-    // end = can/can't be a number
-    end = end ? parseInt(end, 10) : size - 1;
+app.get("/api/v1/audio", (req, res) => {
+  res.send(audioDetailsData);
+});
 
-    res.writeHead(206 /* partial content */, {
-      "Content-range": `bytes ${start}-${end}/${size}`,
-      "Accept-Ranges": "bytes",
-      "Content-Lenght": start - end + 1,
-      "Content-Type": "video/mp4",
-    });
-    createReadStream(filename, { start, end }).pipe(res);
-  } else {
-    res.writeHead(200, {
-      "Content-Length": size,
-      "Content-Type": "video/mp4",
-    });
-    createReadStream(filename).pipe(res);
+app.get("/api/v1/audio/:id", (req, res) => {
+  const id = req.params.id;
+  const [selectedAudioFile] = audioDetailsData.filter((path) => {
+    return path.id === +id;
+  });
+  // res.send(selectedAudioFile[0].src);
+  const audioPath = selectedAudioFile?.src;
+
+  if (!audioPath) {
+    return res
+      .status(404)
+      .send(
+        "<h1>Article not found</h1><button><a href='/api/v1/audio/1'>Back to the audio list</a></button>",
+      );
   }
-}).listen(5050, () => console.log("server is running on server 5050...."));
+
+  const stat = fs.statSync(audioPath);
+  const fileSize = stat.size;
+  const range = req.headers.range;
+
+  if (range) {
+    const parts = range.replace(/bytes=/, "").split("-");
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+    const chunksize = end - start + 1;
+    const file = fs.createReadStream(filePath, { start, end });
+    const head = {
+      "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+      "Accept-Ranges": "bytes",
+      "Content-Length": chunksize,
+      "Content-Type": "video/mp4",
+    };
+    res.writeHead(206, head);
+    file.pipe(res);
+  } else {
+    const head = {
+      "Content-Length": fileSize,
+      "Content-Type": "video/mp4",
+    };
+    res.writeHead(200, head);
+    fs.createReadStream(audioPath).pipe(res);
+  }
+});
+
+app.listen(port, console.log(`server is listening on port: ${port}`));
